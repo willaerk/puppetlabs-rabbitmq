@@ -196,10 +196,6 @@ class rabbitmq(
     $real_package_source = $package_source
   }
 
-  if $manage_repos != undef {
-    warning('$manage_repos is now deprecated. Please use $repos_ensure instead')
-  }
-
   if $manage_repos != false {
     case $::osfamily {
       'RedHat', 'SUSE': {
