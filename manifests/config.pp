@@ -20,6 +20,7 @@ class rabbitmq::config {
   $interface                  = $rabbitmq::interface
   $management_port            = $rabbitmq::management_port
   $management_ssl             = $rabbitmq::management_ssl
+  $management_hostname        = $rabbitmq::management_hostname
   $node_ip_address            = $rabbitmq::node_ip_address
   $plugin_dir                 = $rabbitmq::plugin_dir
   $rabbitmq_user              = $rabbitmq::rabbitmq_user
@@ -27,6 +28,9 @@ class rabbitmq::config {
   $rabbitmq_home              = $rabbitmq::rabbitmq_home
   $port                       = $rabbitmq::port
   $tcp_keepalive              = $rabbitmq::tcp_keepalive
+  $tcp_backlog                = $rabbitmq::tcp_backlog
+  $tcp_sndbuf                 = $rabbitmq::tcp_sndbuf
+  $tcp_recbuf                 = $rabbitmq::tcp_recbuf
   $heartbeat                  = $rabbitmq::heartbeat
   $service_name               = $rabbitmq::service_name
   $ssl                        = $rabbitmq::ssl
@@ -34,6 +38,8 @@ class rabbitmq::config {
   $ssl_cacert                 = $rabbitmq::ssl_cacert
   $ssl_cert                   = $rabbitmq::ssl_cert
   $ssl_key                    = $rabbitmq::ssl_key
+  $ssl_depth                  = $rabbitmq::ssl_depth
+  $ssl_cert_password          = $rabbitmq::ssl_cert_password
   $ssl_port                   = $rabbitmq::ssl_port
   $ssl_interface              = $rabbitmq::ssl_interface
   $ssl_management_port        = $rabbitmq::ssl_management_port
@@ -56,16 +62,27 @@ class rabbitmq::config {
   $config_variables           = $rabbitmq::config_variables
   $config_kernel_variables    = $rabbitmq::config_kernel_variables
   $config_management_variables = $rabbitmq::config_management_variables
+  $config_additional_variables = $rabbitmq::config_additional_variables
   $auth_backends              = $rabbitmq::auth_backends
   $cluster_partition_handling = $rabbitmq::cluster_partition_handling
   $file_limit                 = $rabbitmq::file_limit
-  $default_env_variables      =  {
-    'NODE_PORT'        => $port,
-    'NODE_IP_ADDRESS'  => $node_ip_address
+  $collect_statistics_interval = $rabbitmq::collect_statistics_interval
+
+  if $ssl_only {
+    $default_env_variables = {}
+  } else {
+    $default_env_variables = {
+      'NODE_PORT'        => $port,
+      'NODE_IP_ADDRESS'  => $node_ip_address
+    }
   }
 
   # Handle env variables.
   $environment_variables = merge($default_env_variables, $rabbitmq::environment_variables)
+
+  # Get ranch (socket acceptor pool) availability,
+  # use init class variable for that since version from the fact comes too late.
+  $ranch = versioncmp($rabbitmq::version, '3.6') >= 0
 
   file { '/etc/rabbitmq':
     ensure => directory,
@@ -115,6 +132,27 @@ class rabbitmq::config {
 
   case $::osfamily {
     'Debian': {
+      if versioncmp($::operatingsystemmajrelease, '16.04') >= 0 {
+        file { '/etc/systemd/system/rabbitmq-server.service.d':
+          ensure                  => directory,
+          owner                   => '0',
+          group                   => '0',
+          mode                    => '0755',
+          selinux_ignore_defaults => true,
+        }
+        -> file { '/etc/systemd/system/rabbitmq-server.service.d/limits.conf':
+          content => template('rabbitmq/rabbitmq-server.service.d/limits.conf'),
+          owner   => '0',
+          group   => '0',
+          mode    => '0644',
+          notify  => Exec['rabbitmq-systemd-reload'],
+        }
+        exec { 'rabbitmq-systemd-reload':
+          command     => '/bin/systemctl daemon-reload',
+          notify      => Class['Rabbitmq::Service'],
+          refreshonly => true,
+        }
+      }
       file { '/etc/default/rabbitmq-server':
         ensure  => file,
         content => template('rabbitmq/default.erb'),
@@ -132,8 +170,8 @@ class rabbitmq::config {
           group                   => '0',
           mode                    => '0755',
           selinux_ignore_defaults => true,
-        } ->
-        file { '/etc/systemd/system/rabbitmq-server.service.d/limits.conf':
+        }
+        -> file { '/etc/systemd/system/rabbitmq-server.service.d/limits.conf':
           content => template('rabbitmq/rabbitmq-server.service.d/limits.conf'),
           owner   => '0',
           group   => '0',

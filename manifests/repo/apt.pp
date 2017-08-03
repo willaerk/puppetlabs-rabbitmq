@@ -6,8 +6,8 @@ class rabbitmq::repo::apt(
   $release      = 'testing',
   $repos        = 'main',
   $include_src  = false,
-  $key          = 'F78372A06FF50C80464FC1B4F7B8CEA6056E8E56',
-  $key_source   = 'http://www.rabbitmq.com/rabbitmq-signing-key-public.asc',
+  $key          = '0A9AF2115F4687BD29803A206B73A36E6026DFCA',
+  $key_source   = 'https://www.rabbitmq.com/rabbitmq-release-signing-key.asc',
   $key_content  = undef,
   $architecture = undef,
   ) {
@@ -29,10 +29,12 @@ class rabbitmq::repo::apt(
     location     => $location,
     release      => $release,
     repos        => $repos,
-    include_src  => $include_src,
-    key          => $key,
-    key_source   => $key_source,
-    key_content  => $key_content,
+    include      => { 'src' => $include_src },
+    key          => {
+      'id'      => $key,
+      'source'  => $key_source,
+      'content' =>  $key_content
+    },
     architecture => $architecture,
   }
 

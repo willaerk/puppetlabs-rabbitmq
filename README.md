@@ -64,8 +64,8 @@ Or such as offline installation from intranet or local mirrors:
 
 ```puppet
 class { '::rabbitmq':
-   key_content      => template('openstack/rabbit.pub.key'),
-   package_gpg_key  => '/tmp/rabbit.pub.key',
+   key_content     => template('openstack/rabbit.pub.key'),
+   package_gpg_key => '/tmp/rabbit.pub.key',
 }
 ```
 
@@ -73,7 +73,7 @@ And this one will use external package key source for any (apt/rpm) package prov
 
 ```puppet
 class { '::rabbitmq':
-   package_gpg_key  => 'http://www.some_site.some_domain/some_key.pub.key',
+   package_gpg_key => 'http://www.some_site.some_domain/some_key.pub.key',
 }
 ```
 
@@ -82,10 +82,10 @@ To use RabbitMQ Environment Variables, use the parameters `environment_variables
 
 ```puppet
 class { 'rabbitmq':
-  port              => '5672',
-  environment_variables   => {
-    'NODENAME'     => 'node01',
-    'SERVICENAME'  => 'RabbitMQ'
+  port                  => '5672',
+  environment_variables => {
+    'NODENAME'    => 'node01',
+    'SERVICENAME' => 'RabbitMQ'
   }
 }
 ```
@@ -95,11 +95,11 @@ To change RabbitMQ Config Variables in rabbitmq.config, use the parameters `conf
 
 ```puppet
 class { 'rabbitmq':
-  port              => '5672',
-  config_variables   => {
-    'hipe_compile'  => true,
-    'frame_max'     => 131072,
-    'log_levels'    => "[{connection, info}]"
+  port             => '5672',
+  config_variables => {
+    'hipe_compile' => true,
+    'frame_max'    => 131072,
+    'log_levels'   => "[{connection, info}]"
   }
 }
 ```
@@ -109,8 +109,8 @@ To change Erlang Kernel Config Variables in rabbitmq.config, use the parameters
 
 ```puppet
 class { 'rabbitmq':
-  port              => '5672',
-  config_kernel_variables  => {
+  port                    => '5672',
+  config_kernel_variables => {
     'inet_dist_listen_min' => 9100,
     'inet_dist_listen_max' => 9105,
   }
@@ -122,11 +122,31 @@ To change Management Plugin Config Variables in rabbitmq.config, use the paramet
 
 ```puppet
 class { 'rabbitmq':
-  config_management_variables  => {
+  config_management_variables => {
     'rates_mode' => 'basic',
   }
 }
 ```
+
+### Additional Variables Configurable in rabbitmq.config
+To change Additional Config Variables in rabbitmq.config, use the parameter
+`config_additional_variables` e.g.:
+
+```puppet
+class { 'rabbitmq':
+  config_additional_variables => {
+    'autocluster' => '[{consul_service, "rabbit"},{cluster_name, "rabbit"}]',
+    'foo'         => '[{bar, "baz"}]'
+  }
+}
+```
+This will result in the following config appended to the config file:
+```
+% Additional config
+  {autocluster, [{consul_service, "rabbit"},{cluster_name, "rabbit"}]},
+  {foo, [{bar, "baz"}]}
+```
+(This is required for the [autocluster plugin](https://github.com/aweber/rabbitmq-autocluster)
 
 ### Clustering
 To use RabbitMQ clustering facilities, use the rabbitmq parameters
@@ -179,9 +199,17 @@ An array of nodes for clustering.
 
 Value to set for `cluster_partition_handling` RabbitMQ configuration variable.
 
+####`collect_statistics_interval`
+
+Integer, set the collect_statistics_interval in rabbitmq.config
+
 ####`config`
 
 The file to use as the rabbitmq.config template.
+
+####`config_additional_variables`
+
+String, dditional config variables in rabbitmq.config
 
 ####`config_cluster`
 
@@ -305,6 +333,10 @@ Boolean, set to true to log LDAP auth.
 
 Boolean, whether or not to manage package repositories.
 
+####`management_hostname`
+
+The hostname for the RabbitMQ management interface.
+
 ####`management_port`
 
 The port for the RabbitMQ management interface.
@@ -392,6 +424,14 @@ Cert to use for SSL.
 
 Key to use for SSL.
 
+####`ssl_cert_password`
+
+Password used when generating CSR.
+
+####`ssl_depth`
+
+SSL verification depth.
+
 ####`ssl_management_port`
 
 SSL management port.
@@ -435,9 +475,21 @@ Requires setting ssl_stomp_port also.
 
 Boolean to install the stomp plugin.
 
+####`tcp_backlog`
+
+Integer, the size of the backlog on TCP connections.
+
 ####`tcp_keepalive`
 
 Boolean to enable TCP connection keepalive for RabbitMQ service.
+
+####`tcp_recbuf`
+
+Integer, corresponds to recbuf in RabbitMQ `tcp_listen_options`
+
+####`tcp_sndbuf`
+
+Integer, corresponds to sndbuf in RabbitMQ `tcp_listen_options`
 
 ####`version`
 
@@ -501,14 +553,14 @@ rabbitmq_vhost { 'myvhost':
 
 ```puppet
 rabbitmq_exchange { 'myexchange@myvhost':
-  user     => 'dan',
-  password => 'bar',
-  type     => 'topic',
-  ensure   => present,
-  internal => false,
+  user        => 'dan',
+  password    => 'bar',
+  type        => 'topic',
+  ensure      => present,
+  internal    => false,
   auto_delete => false,
-  durable => true,
-  arguments => {
+  durable     => true,
+  arguments   => {
     hash-header => 'message-distribution-hash'
   }
 }
@@ -523,7 +575,7 @@ rabbitmq_queue { 'myqueue@myvhost':
   durable     => true,
   auto_delete => false,
   arguments   => {
-    x-message-ttl => 123,
+    x-message-ttl          => 123,
     x-dead-letter-exchange => 'other'
   },
   ensure      => present,
@@ -593,7 +645,7 @@ rabbitmq_plugin {'rabbitmq_stomp':
   rabbitmq_parameter { 'documentumFed@/':
     component_name => 'federation-upstream',
     value          => {
-        'uri'    => 'amqp://myserver',
+        'uri'     => 'amqp://myserver',
         'expires' => '360000',
     },
   }

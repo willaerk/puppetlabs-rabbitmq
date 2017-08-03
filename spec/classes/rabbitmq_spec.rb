@@ -184,7 +184,7 @@ describe 'rabbitmq' do
     with_redhat_facts
     it 'includes rabbitmq::repo::rhel' do
       should contain_class('rabbitmq::repo::rhel')
-      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
 
     context 'with file_limit => \'unlimited\'' do
@@ -259,7 +259,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does not import repo public key when repos_ensure is false' do
       should contain_class('rabbitmq::repo::rhel')
-      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -268,7 +268,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does import repo public key when repos_ensure is true' do
       should contain_class('rabbitmq::repo::rhel')
-      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -277,7 +277,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does not import repo public key when manage_repos is false' do
       should_not contain_class('rabbitmq::repo::rhel')
-      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -286,7 +286,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does import repo public key when manage_repos is true' do
       should contain_class('rabbitmq::repo::rhel')
-      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -295,7 +295,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does not import repo public key when manage_repos is false and repos_ensure is true' do
       should_not contain_class('rabbitmq::repo::rhel')
-      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -304,7 +304,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does import repo public key when manage_repos is true and repos_ensure is true' do
       should contain_class('rabbitmq::repo::rhel')
-      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -313,7 +313,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does not import repo public key when manage_repos is false and repos_ensure is false' do
       should_not contain_class('rabbitmq::repo::rhel')
-      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -322,7 +322,7 @@ rabbitmq hard nofile 1234
     with_redhat_facts
     it 'does not import repo public key when manage_repos is true and repos_ensure is false' do
       should contain_class('rabbitmq::repo::rhel')
-      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-signing-key-public.asc')
+      should_not contain_exec('rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc')
     end
   end
 
@@ -396,25 +396,9 @@ LimitNOFILE=1234
   end
 
   ['Debian', 'RedHat', 'SUSE', 'Archlinux'].each do |distro|
-    osfacts = {
-      :osfamily         => distro,
-      :staging_http_get => ''
-    }
-
-    case distro
-    when 'Debian'
-      osfacts.merge!({
-        :lsbdistcodename => 'squeeze',
-        :lsbdistid       => 'Debian'
-      })
-    when 'RedHat'
-      osfacts.merge!({
-        :operatingsystemmajrelease => '7',
-      })
-    end
 
     context "on #{distro}" do
-      let(:facts) { osfacts }
+      with_distro_facts distro
 
       it { should contain_class('rabbitmq::install') }
       it { should contain_class('rabbitmq::config') }
@@ -507,12 +491,6 @@ LimitNOFILE=1234
           :cluster_node_type        => 'ram',
           :wipe_db_on_cookie_change => false
         }}
-
-        describe 'with defaults' do
-          it 'fails' do
-            expect { catalogue }.to raise_error(Puppet::Error, /You must set the \$erlang_cookie value/)
-          end
-        end
 
         describe 'with erlang_cookie set' do
           let(:params) {{
@@ -872,10 +850,13 @@ LimitNOFILE=1234
           should contain_file('rabbitmq.config').with_content(
             %r{port, 13142}
           )
+          should contain_file('rabbitmqadmin.conf').with_content(
+            %r{port\s=\s13142}
+          )
         end
       end
 
-        describe 'ssl options and mangament_ssl true' do
+      describe 'ssl options and mangament_ssl true' do
         let(:params) {
           { :ssl => true,
             :ssl_port => 3141,
@@ -909,6 +890,23 @@ LimitNOFILE=1234
         it 'should set ssl managment port to specified values' do
           should contain_file('rabbitmq.config').with_content(
             %r{port, 13141}
+          )
+        end
+        it 'should set ssl options in the rabbitmqadmin.conf' do
+          should contain_file('rabbitmqadmin.conf').with_content(
+            %r{ssl_ca_cert_file\s=\s/path/to/cacert}
+          )
+          should contain_file('rabbitmqadmin.conf').with_content(
+            %r{ssl_cert_file\s=\s/path/to/cert}
+          )
+          should contain_file('rabbitmqadmin.conf').with_content(
+            %r{ssl_key_file\s=\s/path/to/key}
+          )
+          should contain_file('rabbitmqadmin.conf').with_content(
+            %r{hostname\s=\s}
+          )
+          should contain_file('rabbitmqadmin.conf').with_content(
+            %r{port\s=\s13141}
           )
         end
       end
@@ -980,6 +978,11 @@ LimitNOFILE=1234
           should contain_file('rabbitmq.config').with_content(%r{certfile,"/path/to/cert"})
           should contain_file('rabbitmq.config').with_content(%r{keyfile,"/path/to/key})
         end
+        it 'should not set TCP listener environment defaults' do
+          should contain_file('rabbitmq-env.config') \
+            .without_content(%r{NODE_PORT=}) \
+            .without_content(%r{NODE_IP_ADDRESS=})
+        end
       end
 
       describe 'ssl options with ssl_only and ssl_interfaces' do
@@ -1020,21 +1023,6 @@ LimitNOFILE=1234
           should contain_file('rabbitmq.config').with_content(%r{keyfile,"/path/to/key})
           should contain_file('rabbitmq.config').with_content(%r{ssl, \[\{versions, \['tlsv1.1', 'tlsv1.2'\]\}\]})
           should contain_file('rabbitmq.config').with_content(%r{versions, \['tlsv1.1', 'tlsv1.2'\]})
-        end
-      end
-
-      describe 'ssl options with invalid ssl_versions type' do
-        let(:params) {
-          { :ssl => true,
-            :ssl_port => 3141,
-            :ssl_cacert => '/path/to/cacert',
-            :ssl_cert => '/path/to/cert',
-            :ssl_key => '/path/to/key',
-            :ssl_versions => 'tlsv1.2, tlsv1.1'
-        } }
-
-        it 'fails' do
-          expect { catalogue }.to raise_error(Puppet::Error, /is not an Array/)
         end
       end
 
@@ -1220,15 +1208,57 @@ LimitNOFILE=1234
         end
       end
 
-      describe 'non-bool tcp_keepalive parameter' do
-        let :params do
-          { :tcp_keepalive => 'string' }
+      describe 'tcp_backlog with default value' do
+        it 'should set tcp_listen_options backlog to 128' do
+          should contain_file('rabbitmq.config') \
+            .with_content(/\{backlog,       128\}/)
+        end
+      end
+
+      describe 'tcp_backlog with non-default value' do
+        let(:params) do
+          { :tcp_backlog => 256 }
         end
 
-        it 'should raise an error' do
-          expect {
-            should contain_file('rabbitmq.config')
-          }.to raise_error(Puppet::Error, /is not a boolean/)
+        it 'should set tcp_listen_options backlog to 256' do
+          should contain_file('rabbitmq.config') \
+            .with_content(/\{backlog,       256\}/)
+        end
+      end
+
+      describe 'tcp_sndbuf with default value' do
+        it 'should not set tcp_listen_options sndbuf' do
+          should contain_file('rabbitmq.config') \
+            .without_content(/sndbuf/)
+        end
+      end
+
+      describe 'tcp_sndbuf with non-default value' do
+        let(:params) do
+          { :tcp_sndbuf => 128 }
+        end
+
+        it 'should set tcp_listen_options sndbuf to 128' do
+          should contain_file('rabbitmq.config') \
+            .with_content(/\{sndbuf,       128\}/)
+        end
+      end
+
+      describe 'tcp_recbuf with default value' do
+        it 'should not set tcp_listen_options recbuf' do
+          should contain_file('rabbitmq.config') \
+            .without_content(/recbuf/)
+        end
+      end
+
+      describe 'tcp_recbuf with non-default value' do
+        let(:params) do
+          { :tcp_recbuf => 128 }
+        end
+
+        it 'should set tcp_listen_options recbuf to 128' do
+          should contain_file('rabbitmq.config') \
+            .with_content(/\{recbuf,       128\}/)
         end
       end
 
@@ -1237,15 +1267,6 @@ LimitNOFILE=1234
         it 'should set heartbeat paramter in config file' do
           should contain_file('rabbitmq.config') \
             .with_content(/\{heartbeat, 60\}/)
-        end
-      end
-
-      describe 'non-integer rabbitmq-heartbeat options' do
-        let(:params) {{ :heartbeat => 'string' }}
-        it 'should raise a validation error' do
-          expect {
-            should contain_file('rabbitmq.config')
-          }.to raise_error(Puppet::Error, /Expected first argument to be an Integer/)
         end
       end
 
@@ -1288,19 +1309,6 @@ LimitNOFILE=1234
         ) }
       end
 
-      describe 'service with ensure neither running neither stopped' do
-        let :params do
-          { :service_ensure => 'foo' }
-        end
-
-        it 'should raise an error' do
-          expect {
-            should contain_service('rabbitmq-server').with(
-              'ensure' => 'stopped' )
-          }.to raise_error(Puppet::Error, /validate_re\(\): "foo" does not match "\^\(running\|stopped\)\$"/)
-        end
-      end
-
       describe 'service with service_manage equal to false' do
         let :params do
           { :service_manage => false }
@@ -1340,7 +1348,7 @@ LimitNOFILE=1234
   end
 
   context "on Archlinux" do
-    let(:facts) {{ :osfamily => 'Archlinux', :staging_http_get => ''}}
+    with_archlinux_facts
     it 'installs the rabbitmq package' do
       should contain_package('rabbitmq-server').with(
         'ensure'   => 'installed',
@@ -1370,8 +1378,7 @@ LimitNOFILE=1234
           'location'    => 'http://www.rabbitmq.com/debian/',
           'release'     => 'testing',
           'repos'       => 'main',
-          'include_src' => false,
-          'key'         => 'F78372A06FF50C80464FC1B4F7B8CEA6056E8E56'
+          'key'         => '{"id"=>"0A9AF2115F4687BD29803A206B73A36E6026DFCA", "source"=>"https://www.rabbitmq.com/rabbitmq-release-signing-key.asc", "content"=>:undef}'
         ) }
       end
     end
@@ -1384,8 +1391,7 @@ LimitNOFILE=1234
           'location'    => 'http://www.rabbitmq.com/debian/',
           'release'     => 'testing',
           'repos'       => 'main',
-          'include_src' => false,
-          'key'         => 'F78372A06FF50C80464FC1B4F7B8CEA6056E8E56'
+          'key'         => '{"id"=>"0A9AF2115F4687BD29803A206B73A36E6026DFCA", "source"=>"https://www.rabbitmq.com/rabbitmq-release-signing-key.asc", "content"=>:undef}'
         ) }
 
         it { should contain_apt__pin('rabbitmq').with(
@@ -1399,27 +1405,11 @@ LimitNOFILE=1234
   end
 
   ['RedHat', 'SuSE'].each do |distro|
-    osfacts = {
-      :osfamily         => distro,
-      :staging_http_get => ''
-    }
-
-    case distro
-    when 'Debian'
-      osfacts.merge!({
-        :lsbdistcodename => 'squeeze',
-        :lsbdistid => 'Debian'
-      })
-    when 'RedHat'
-      osfacts.merge!({
-        :operatingsystemmajrelease => '7',
-      })
-    end
 
     describe "repo management on #{distro}" do
       describe 'imports the key' do
-        let(:facts) { osfacts }
-        let(:params) {{ :package_gpg_key => 'https://www.rabbitmq.com/rabbitmq-signing-key-public.asc' }}
+        with_distro_facts distro
+        let(:params) {{ :package_gpg_key => 'https://www.rabbitmq.com/rabbitmq-release-signing-key.asc' }}
 
         it { should contain_exec("rpm --import #{params[:package_gpg_key]}").with(
           'path' => ['/bin','/usr/bin','/sbin','/usr/sbin']
